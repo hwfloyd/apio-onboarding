@@ -74,7 +74,7 @@ export const handler = async (event) => {
       </table>
 
       <p style="margin-top:24px">
-        <a href="${process.env.URL}/admin/onboarding/${id}" style="background:#2563eb;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:500">
+        <a href="${process.env.SITE_URL}/admin/onboarding/${id}" style="background:#2563eb;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:500">
           Ver en Backoffice →
         </a>
       </p>
