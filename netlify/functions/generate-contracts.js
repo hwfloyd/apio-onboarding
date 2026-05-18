@@ -61,48 +61,58 @@ export const handler = async (event) => {
   const needsTransbank = tieneWebpayPlus || tieneOneClick
 
   if (needsTransbank) {
-    // --- Excel ficha Transbank ---
+    // --- Excel ficha Transbank desde plantilla ---
     try {
+      const { data: excelTemplate, error: excelTemplateError } = await supabase.storage
+        .from('onboarding-docs')
+        .download('templates/ficha_transbank.xlsx')
+
+      if (excelTemplateError) throw new Error(`Plantilla Excel no encontrada: ${excelTemplateError.message}`)
+
+      const excelVars = {
+        razon_social: data.razon_social || '',
+        nombre_fantasia: data.nombre_fantasia || data.razon_social || '',
+        rut_sociedad: data.rut_sociedad || '',
+        direccion: data.direccion || '',
+        oficina: data.oficina || '',
+        comuna: data.comuna || '',
+        region: data.region || '',
+        actividad_economica: data.actividad_economica || '',
+        nombre_rl: data.nombre_rl || '',
+        rut_rl: data.rut_rl || '',
+        telefono_rl: data.telefono_rl || '',
+        email_rl: data.email_rl || '',
+        banco: data.banco_label || '',
+        numero_cuenta: data.numero_cuenta || '',
+        rut_titular_cuenta: data.rut_titular_es_sociedad ? data.rut_sociedad : (data.rut_titular_cuenta || ''),
+        codigo_mall_plus: tieneWebpayPlus ? '52981028' : '',
+        codigo_mall_oneclick: tieneOneClick ? '42829258' : '',
+        marca_plus: tieneWebpayPlus ? 'X' : '',
+        marca_oneclick: tieneOneClick ? 'X' : '',
+        oneclick_max_transacciones: data.oneclick_max_transacciones || '',
+        oneclick_monto_max: data.oneclick_monto_max || '',
+        oneclick_monto_acumulado: data.oneclick_monto_acumulado || '',
+        fecha: new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' }),
+      }
+
+      const excelBuffer = Buffer.from(await excelTemplate.arrayBuffer())
       const workbook = new ExcelJS.Workbook()
-      const sheet = workbook.addWorksheet('Formulario Afiliación')
+      await workbook.xlsx.load(excelBuffer)
 
-      sheet.columns = [
-        { header: 'Campo', key: 'campo', width: 40 },
-        { header: 'Valor', key: 'valor', width: 50 },
-      ]
+      workbook.eachSheet(sheet => {
+        sheet.eachRow(row => {
+          row.eachCell(cell => {
+            if (typeof cell.value === 'string') {
+              const replaced = cell.value.replace(/\{(\w+)\}/g, (_, key) => excelVars[key] ?? '')
+              if (replaced !== cell.value) cell.value = replaced
+            }
+          })
+        })
+      })
 
-      const rows = [
-        ['Razón Social', data.razon_social],
-        ['Nombre de Fantasía', data.nombre_fantasia || ''],
-        ['RUT Empresa', data.rut_sociedad],
-        ['Dirección', data.direccion],
-        ['Oficina', data.oficina || ''],
-        ['Comuna', data.comuna],
-        ['Región', data.region],
-        ['Actividad Económica', data.actividad_economica || ''],
-        ['Nombre Representante Legal', data.nombre_rl],
-        ['RUT Representante Legal', data.rut_rl],
-        ['Teléfono Representante Legal', data.telefono_rl],
-        ['Email Representante Legal', data.email_rl],
-        ['Banco', data.banco_label || ''],
-        ['N° Cuenta', data.numero_cuenta || ''],
-        ['RUT Titular Cuenta', data.rut_titular_es_sociedad ? data.rut_sociedad : (data.rut_titular_cuenta || '')],
-        ...(tieneWebpayPlus ? [['Webpay Plus — Código Mall', '52981028']] : []),
-        ...(tieneOneClick ? [
-          ['Webpay OneClick — Código Mall', '42829258'],
-          ['OneClick — Máx. transacciones/día', data.oneclick_max_transacciones || ''],
-          ['OneClick — Monto máx. por transacción', data.oneclick_monto_max || ''],
-          ['OneClick — Monto acumulado máx./día', data.oneclick_monto_acumulado || ''],
-        ] : []),
-      ]
-
-      rows.forEach(([campo, valor]) => sheet.addRow({ campo, valor }))
-      sheet.getRow(1).font = { bold: true }
-      sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }
-
-      const excelBuffer = await workbook.xlsx.writeBuffer()
+      const filledBuffer = await workbook.xlsx.writeBuffer()
       const excelPath = `${id}/contratos/formulario_transbank.xlsx`
-      await supabase.storage.from('onboarding-docs').upload(excelPath, excelBuffer, {
+      await supabase.storage.from('onboarding-docs').upload(excelPath, filledBuffer, {
         upsert: true,
         contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       })
