@@ -19,18 +19,15 @@ export const handler = async (event) => {
     const { data, error } = await supabase.from('onboardings').select('*').eq('id', id).single()
     if (error) return { statusCode: 500, body: JSON.stringify({ error: 'Error fetching onboarding' }) }
 
-    if (!data.contrato_transbank_firmado) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Contrato Transbank firmado no encontrado' }) }
-    }
-
     const rut = data.rut_sociedad?.replace(/\./g, '').replace('-', '') || id
 
     const adjuntos = await Promise.all([
-      downloadAttachment(data.archivo_escritura,        `Escritura_${rut}`),
-      downloadAttachment(data.archivo_cedula_rl,        `Cedula_RL_${rut}`),
-      downloadAttachment(data.archivo_erut,             `ERUT_${rut}`),
-      downloadAttachment(data.archivo_cedula_rl_cert,   `Cedula_RL_Certificado_${rut}`),
-      downloadAttachment(data.contrato_transbank_firmado, `Contrato_Transbank_Firmado_${rut}.pdf`),
+      downloadAttachment(data.archivo_escritura,                  `Escritura_${rut}`),
+      downloadAttachment(data.archivo_cedula_rl,                  `Cedula_RL_${rut}`),
+      downloadAttachment(data.archivo_erut,                       `ERUT_${rut}`),
+      downloadAttachment(data.archivo_cedula_rl_cert,             `Cedula_RL_Certificado_${rut}`),
+      downloadAttachment(data.contrato_transbank_plus_firmado,    `Contrato_Transbank_Plus_Firmado_${rut}.pdf`),
+      downloadAttachment(data.contrato_transbank_oneclick_firmado,`Contrato_Transbank_OneClick_Firmado_${rut}.pdf`),
     ])
 
     const attachments = adjuntos.filter(Boolean)

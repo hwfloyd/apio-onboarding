@@ -140,7 +140,9 @@ export default function OnboardingDetail() {
   if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-500">Cargando...</div>
   if (!data) return <div className="min-h-screen flex items-center justify-center text-gray-500">Onboarding no encontrado.</div>
 
-  const needsTransbank = data.medios_pago?.includes('webpay_plus') || data.medios_pago?.includes('webpay_oneclick') || data.productos?.includes('pagos_recurrentes')
+  const tieneWebpayPlus = data.medios_pago?.includes('webpay_plus')
+  const tieneOneClick = data.medios_pago?.includes('webpay_oneclick') || data.productos?.includes('pagos_recurrentes')
+  const needsTransbank = tieneWebpayPlus || tieneOneClick
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -224,16 +226,21 @@ export default function OnboardingDetail() {
               <input type="file" accept=".pdf,.docx" onChange={e => handleContractUpload(e, 'prestacion')} className="text-xs" />
               {data.contrato_prestacion_firmado && <span className="text-xs text-green-600">Subido</span>}
             </div>
-            {needsTransbank && (
-              <>
-                <div className="flex items-center gap-3">
-                  <label className="text-sm text-gray-600">Contrato Transbank firmado:</label>
-                  <input type="file" accept=".pdf,.docx" onChange={e => handleContractUpload(e, 'transbank')} className="text-xs" />
-                  {data.contrato_transbank_firmado && <span className="text-xs text-green-600">Subido</span>}
-                </div>
-                {uploadingContract && <p className="text-xs text-gray-400">Subiendo...</p>}
-              </>
+            {tieneWebpayPlus && (
+              <div className="flex items-center gap-3">
+                <label className="text-sm text-gray-600">Contrato Transbank — Webpay Plus:</label>
+                <input type="file" accept=".pdf,.docx" onChange={e => handleContractUpload(e, 'transbank_plus')} className="text-xs" />
+                {data.contrato_transbank_plus_firmado && <span className="text-xs text-green-600">Subido</span>}
+              </div>
             )}
+            {tieneOneClick && (
+              <div className="flex items-center gap-3">
+                <label className="text-sm text-gray-600">Contrato Transbank — Webpay OneClick:</label>
+                <input type="file" accept=".pdf,.docx" onChange={e => handleContractUpload(e, 'transbank_oneclick')} className="text-xs" />
+                {data.contrato_transbank_oneclick_firmado && <span className="text-xs text-green-600">Subido</span>}
+              </div>
+            )}
+            {uploadingContract && <p className="text-xs text-gray-400">Subiendo...</p>}
           </div>
 
           {msg && (
@@ -251,7 +258,10 @@ export default function OnboardingDetail() {
             {!emailDraft ? (
               <button
                 onClick={async () => { setEmailDraft(await buildEmailDraft(data)); setEmailTab('edit') }}
-                disabled={!data.contrato_transbank_firmado}
+                disabled={
+                  (tieneWebpayPlus && !data.contrato_transbank_plus_firmado) ||
+                  (tieneOneClick && !data.contrato_transbank_oneclick_firmado)
+                }
                 className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
               >
                 Preparar correo
@@ -307,8 +317,8 @@ export default function OnboardingDetail() {
               </div>
             )}
 
-            {!data.contrato_transbank_firmado && !emailDraft && (
-              <p className="text-xs text-gray-400">Debes subir el contrato Transbank firmado antes de preparar el correo.</p>
+            {!emailDraft && ((tieneWebpayPlus && !data.contrato_transbank_plus_firmado) || (tieneOneClick && !data.contrato_transbank_oneclick_firmado)) && (
+              <p className="text-xs text-gray-400">Debes subir todos los contratos Transbank firmados antes de preparar el correo.</p>
             )}
           </div>
         )}
