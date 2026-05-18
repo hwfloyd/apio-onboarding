@@ -29,6 +29,8 @@ export default function OnboardingDetail() {
   const [uploadingContract, setUploadingContract] = useState(false)
   const [sendingTransbank, setSendingTransbank] = useState(false)
   const [msg, setMsg] = useState(null)
+  const [emailDraft, setEmailDraft] = useState(null)
+  const [emailTab, setEmailTab] = useState('edit')
 
   useEffect(() => {
     fetchOnboarding()
@@ -70,18 +72,42 @@ export default function OnboardingDetail() {
     setUploadingContract(false)
   }
 
+  const buildEmailDraft = (d) => {
+    const servicios = (d.medios_pago || [])
+      .filter(m => m.includes('webpay'))
+      .map(m => m === 'webpay_plus' ? 'Webpay Plus' : 'Webpay OneClick')
+      .join(' y ')
+    return {
+      subject: `Solicitud Afiliación Transbank — ${d.razon_social}`,
+      body: `<p>Estimado ejecutivo de Transbank,</p>
+<p>Adjunto a este correo encontrará la documentación necesaria para procesar la solicitud de afiliación del siguiente cliente:</p>
+<ul>
+  <li><strong>Razón Social:</strong> ${d.razon_social}</li>
+  <li><strong>RUT:</strong> ${d.rut_sociedad}</li>
+  <li><strong>Representante Legal:</strong> ${d.nombre_rl}, RUT ${d.rut_rl}</li>
+  <li><strong>Servicios solicitados:</strong> ${servicios}</li>
+</ul>
+<p>En los adjuntos encontrará la escritura de la sociedad, cédula del representante legal, e-RUT y el o los contratos firmados.</p>
+<p>Quedo a disposición ante cualquier consulta.</p>
+<p>Saludos,<br/>Equipo Apio</p>`,
+    }
+  }
+
   const handleSendTransbank = async () => {
+    if (!emailDraft) return
     setSendingTransbank(true)
     setMsg(null)
     const res = await fetch('/.netlify/functions/send-transbank', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
+      body: JSON.stringify({ id, subject: emailDraft.subject, html: emailDraft.body }),
     })
     if (res.ok) {
       setMsg('Correo a Transbank enviado correctamente.')
+      setEmailDraft(null)
     } else {
-      setMsg('Error al enviar el correo. Verifica que los contratos firmados estén subidos.')
+      const body = await res.json().catch(() => ({}))
+      setMsg(`Error al enviar: ${body.error || res.status}`)
     }
     setSendingTransbank(false)
   }
@@ -192,19 +218,11 @@ export default function OnboardingDetail() {
             {needsTransbank && (
               <>
                 <div className="flex items-center gap-3">
-                  <label className="text-sm text-gray-600">Contrato Transbank:</label>
+                  <label className="text-sm text-gray-600">Contrato Transbank firmado:</label>
                   <input type="file" accept=".pdf,.docx" onChange={e => handleContractUpload(e, 'transbank')} className="text-xs" />
                   {data.contrato_transbank_firmado && <span className="text-xs text-green-600">Subido</span>}
                 </div>
                 {uploadingContract && <p className="text-xs text-gray-400">Subiendo...</p>}
-                <button
-                  onClick={handleSendTransbank}
-                  disabled={sendingTransbank || !data.contrato_transbank_firmado}
-                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-                >
-                  {sendingTransbank ? 'Enviando...' : 'Enviar correo a Transbank'}
-                </button>
-                {!data.contrato_transbank_firmado && <p className="text-xs text-gray-400">Debes subir el contrato Transbank firmado primero.</p>}
               </>
             )}
           </div>
@@ -215,6 +233,76 @@ export default function OnboardingDetail() {
             </div>
           )}
         </div>
+
+        {/* Correo a Transbank */}
+        {needsTransbank && (
+          <div className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
+            <h2 className="text-base font-semibold text-gray-800">Correo a Transbank</h2>
+
+            {!emailDraft ? (
+              <button
+                onClick={() => { setEmailDraft(buildEmailDraft(data)); setEmailTab('edit') }}
+                disabled={!data.contrato_transbank_firmado}
+                className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+              >
+                Preparar correo
+              </button>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Asunto</label>
+                  <input
+                    type="text"
+                    value={emailDraft.subject}
+                    onChange={e => setEmailDraft(d => ({ ...d, subject: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex gap-2 mb-2">
+                    <button onClick={() => setEmailTab('edit')} className={`text-sm px-3 py-1 rounded-md ${emailTab === 'edit' ? 'bg-gray-200 font-medium' : 'text-gray-500 hover:bg-gray-100'}`}>Editar</button>
+                    <button onClick={() => setEmailTab('preview')} className={`text-sm px-3 py-1 rounded-md ${emailTab === 'preview' ? 'bg-gray-200 font-medium' : 'text-gray-500 hover:bg-gray-100'}`}>Previsualizar</button>
+                  </div>
+
+                  {emailTab === 'edit' ? (
+                    <textarea
+                      value={emailDraft.body}
+                      onChange={e => setEmailDraft(d => ({ ...d, body: e.target.value }))}
+                      rows={12}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <div
+                      className="border border-gray-200 rounded-lg p-4 text-sm bg-white min-h-48"
+                      dangerouslySetInnerHTML={{ __html: emailDraft.body }}
+                    />
+                  )}
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleSendTransbank}
+                    disabled={sendingTransbank}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                  >
+                    {sendingTransbank ? 'Enviando...' : 'Enviar a Transbank'}
+                  </button>
+                  <button
+                    onClick={() => setEmailDraft(null)}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!data.contrato_transbank_firmado && !emailDraft && (
+              <p className="text-xs text-gray-400">Debes subir el contrato Transbank firmado antes de preparar el correo.</p>
+            )}
+          </div>
+        )}
 
         {/* Contratos generados */}
         {(data.contrato_prestacion_path || data.excel_transbank_plus_path || data.excel_transbank_oneclick_path || data.contrato_transbank_plus_path || data.contrato_transbank_oneclick_path) && (
