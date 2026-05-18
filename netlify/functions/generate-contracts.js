@@ -112,9 +112,11 @@ export const handler = async (event) => {
     }
 
     // --- Contratos Transbank (uno por producto) ---
-    const { data: templateFile } = await supabase.storage
+    const { data: templateFile, error: templateError } = await supabase.storage
       .from('onboarding-docs')
       .download('templates/contrato_transbank.docx')
+
+    if (templateError) throw new Error(`Plantilla no encontrada: ${templateError.message}`)
 
     if (templateFile) {
       const fechaHoy = new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })
