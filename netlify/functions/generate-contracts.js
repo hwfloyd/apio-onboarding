@@ -55,9 +55,12 @@ export const handler = async (event) => {
   }
 
   // --- Generar Excel Transbank si aplica ---
-  const needsTransbank = data.medios_pago?.includes('webpay_plus') || data.medios_pago?.includes('webpay_oneclick') || data.productos?.includes('pagos_recurrentes')
+  const tieneWebpayPlus = data.medios_pago?.includes('webpay_plus')
+  const tieneOneClick = data.medios_pago?.includes('webpay_oneclick') || data.productos?.includes('pagos_recurrentes')
+  const needsTransbank = tieneWebpayPlus || tieneOneClick
 
   if (needsTransbank) {
+    // --- Excel ficha Transbank ---
     try {
       const workbook = new ExcelJS.Workbook()
       const sheet = workbook.addWorksheet('Formulario Afiliación')
@@ -83,61 +86,90 @@ export const handler = async (event) => {
         ['Banco', data.banco_label || ''],
         ['N° Cuenta', data.numero_cuenta || ''],
         ['RUT Titular Cuenta', data.rut_titular_es_sociedad ? data.rut_sociedad : (data.rut_titular_cuenta || '')],
-        ['Servicios Solicitados', (data.medios_pago || []).filter(m => m.includes('webpay')).join(', ')],
-        ['Máx. Transacciones OneClick/día', data.oneclick_max_transacciones || ''],
-        ['Monto Máx. OneClick por transacción', data.oneclick_monto_max || ''],
-        ['Monto Acumulado Máx. OneClick/día', data.oneclick_monto_acumulado || ''],
+        ...(tieneWebpayPlus ? [['Webpay Plus — Código Mall', '52981028']] : []),
+        ...(tieneOneClick ? [
+          ['Webpay OneClick — Código Mall', '42829258'],
+          ['OneClick — Máx. transacciones/día', data.oneclick_max_transacciones || ''],
+          ['OneClick — Monto máx. por transacción', data.oneclick_monto_max || ''],
+          ['OneClick — Monto acumulado máx./día', data.oneclick_monto_acumulado || ''],
+        ] : []),
       ]
 
       rows.forEach(([campo, valor]) => sheet.addRow({ campo, valor }))
-
-      // Estilos básicos
       sheet.getRow(1).font = { bold: true }
       sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }
 
       const excelBuffer = await workbook.xlsx.writeBuffer()
-      const path = `${id}/contratos/formulario_transbank.xlsx`
-      await supabase.storage.from('onboarding-docs').upload(path, excelBuffer, {
+      const excelPath = `${id}/contratos/formulario_transbank.xlsx`
+      await supabase.storage.from('onboarding-docs').upload(excelPath, excelBuffer, {
         upsert: true,
         contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       })
-      updates.excel_transbank_path = path
+      updates.excel_transbank_path = excelPath
     } catch (err) {
       console.error('Error generando Excel Transbank:', err)
     }
 
-    // Contrato Transbank desde plantilla
-    try {
-      const { data: templateFile } = await supabase.storage
-        .from('onboarding-docs')
-        .download('templates/contrato_transbank.docx')
+    // --- Contratos Transbank (uno por producto) ---
+    const { data: templateFile } = await supabase.storage
+      .from('onboarding-docs')
+      .download('templates/contrato_transbank.docx')
 
-      if (templateFile) {
-        const buffer = Buffer.from(await templateFile.arrayBuffer())
-        const zip = new PizZip(buffer)
-        const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true })
-        const fechaHoy = new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })
-
-        doc.render({
-          razon_social: data.razon_social,
-          rut_sociedad: data.rut_sociedad,
-          nombre_rl: data.nombre_rl,
-          rut_rl: data.rut_rl,
-          direccion: data.direccion,
-          comuna: data.comuna,
-          banco: data.banco_label || '',
-          numero_cuenta: data.numero_cuenta || '',
-          servicios_webpay: (data.medios_pago || []).filter(m => m.includes('webpay')).join(', '),
-          fecha: fechaHoy,
-        })
-
-        const out = doc.getZip().generate({ type: 'nodebuffer' })
-        const path = `${id}/contratos/contrato_transbank.docx`
-        await supabase.storage.from('onboarding-docs').upload(path, out, { upsert: true, contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
-        updates.contrato_transbank_path = path
+    if (templateFile) {
+      const fechaHoy = new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })
+      const baseVars = {
+        razon_social: data.razon_social,
+        rut_sociedad: data.rut_sociedad,
+        nombre_rl: data.nombre_rl,
+        rut_rl: data.rut_rl,
+        direccion: data.direccion,
+        comuna: data.comuna,
+        banco: data.banco_label || '',
+        numero_cuenta: data.numero_cuenta || '',
+        fecha: fechaHoy,
       }
-    } catch (err) {
-      console.error('Error generando contrato Transbank:', err)
+
+      const generateTransbankContract = async (vars, filename, updateKey) => {
+        try {
+          const buffer = Buffer.from(await templateFile.arrayBuffer())
+          const zip = new PizZip(buffer)
+          const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true })
+          doc.render(vars)
+          const out = doc.getZip().generate({ type: 'nodebuffer' })
+          const path = `${id}/contratos/${filename}`
+          await supabase.storage.from('onboarding-docs').upload(path, out, {
+            upsert: true,
+            contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          })
+          updates[updateKey] = path
+        } catch (err) {
+          console.error(`Error generando contrato ${filename}:`, err)
+        }
+      }
+
+      if (tieneWebpayPlus) {
+        await generateTransbankContract({
+          ...baseVars,
+          nombre_producto: 'Webpay Plus',
+          codigo_mall: '52981028',
+          tiene_oneclick: false,
+          oneclick_max_transacciones: '',
+          oneclick_monto_max: '',
+          oneclick_monto_acumulado: '',
+        }, 'contrato_transbank_plus.docx', 'contrato_transbank_plus_path')
+      }
+
+      if (tieneOneClick) {
+        await generateTransbankContract({
+          ...baseVars,
+          nombre_producto: 'Webpay OneClick',
+          codigo_mall: '42829258',
+          tiene_oneclick: true,
+          oneclick_max_transacciones: data.oneclick_max_transacciones || '',
+          oneclick_monto_max: data.oneclick_monto_max || '',
+          oneclick_monto_acumulado: data.oneclick_monto_acumulado || '',
+        }, 'contrato_transbank_oneclick.docx', 'contrato_transbank_oneclick_path')
+      }
     }
   }
 

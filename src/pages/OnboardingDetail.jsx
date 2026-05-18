@@ -222,7 +222,8 @@ export default function OnboardingDetail() {
             <div className="space-y-2 text-sm">
               {[
                 { path: data.contrato_prestacion_path, label: 'Contrato Prestación de Servicios' },
-                { path: data.contrato_transbank_path, label: 'Contrato Transbank' },
+                { path: data.contrato_transbank_plus_path, label: 'Contrato Transbank — Webpay Plus' },
+                { path: data.contrato_transbank_oneclick_path, label: 'Contrato Transbank — Webpay OneClick' },
                 { path: data.excel_transbank_path, label: 'Formulario Afiliación Transbank (Excel)' },
               ].map(({ path, label }) => path ? (
                 <div key={label} className="flex items-center gap-2">
