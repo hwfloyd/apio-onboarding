@@ -78,12 +78,18 @@ export default function OnboardingDetail() {
       .map(m => m === 'webpay_plus' ? 'Webpay Plus' : 'Webpay OneClick')
       .join(' y ')
 
+    const productosTransbank = [
+      ...(d.medios_pago?.includes('webpay_plus') ? ['<li>Webpay Plus — Código Mall: 52981028</li>'] : []),
+      ...(d.medios_pago?.includes('webpay_oneclick') || d.productos?.includes('pagos_recurrentes') ? ['<li>Webpay OneClick — Código Mall: 42829258</li>'] : []),
+    ].join('')
+
     const vars = {
       razon_social: d.razon_social || '',
       rut_sociedad: d.rut_sociedad || '',
       nombre_rl: d.nombre_rl || '',
       rut_rl: d.rut_rl || '',
       servicios,
+      productos_transbank: `<ul>${productosTransbank}</ul>`,
     }
 
     const fill = (str) => {
