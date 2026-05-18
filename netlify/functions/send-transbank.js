@@ -36,7 +36,7 @@ export const handler = async (event) => {
 
     const attachments = adjuntos.filter(Boolean)
 
-    await resend.emails.send({
+    const { data: resendData, error: resendError } = await resend.emails.send({
       from: 'Apio <noreply@apio.cl>',
       to: process.env.TRANSBANK_EXECUTIVE_EMAIL,
       subject: subject || `Solicitud Afiliación Transbank — ${data.razon_social}`,
@@ -44,9 +44,14 @@ export const handler = async (event) => {
       attachments,
     })
 
+    if (resendError) {
+      console.error('Resend error:', resendError)
+      return { statusCode: 500, body: JSON.stringify({ error: `Resend: ${resendError.message}` }) }
+    }
+
     await supabase.from('onboardings').update({ estado: 'firmado' }).eq('id', id)
 
-    return { statusCode: 200, body: 'OK' }
+    return { statusCode: 200, body: JSON.stringify({ id: resendData?.id }) }
   } catch (err) {
     console.error('send-transbank error:', err)
     return { statusCode: 500, body: JSON.stringify({ error: err.message }) }
