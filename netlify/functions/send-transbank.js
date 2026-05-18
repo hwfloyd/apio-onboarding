@@ -19,6 +19,10 @@ export const handler = async (event) => {
     const { data, error } = await supabase.from('onboardings').select('*').eq('id', id).single()
     if (error) return { statusCode: 500, body: JSON.stringify({ error: 'Error fetching onboarding' }) }
 
+    if (!process.env.TRANSBANK_EXECUTIVE_EMAIL) {
+      return { statusCode: 500, body: JSON.stringify({ error: 'TRANSBANK_EXECUTIVE_EMAIL no está configurado en las variables de entorno.' }) }
+    }
+
     const rut = data.rut_sociedad?.replace(/\./g, '').replace('-', '') || id
 
     const adjuntos = await Promise.all([
