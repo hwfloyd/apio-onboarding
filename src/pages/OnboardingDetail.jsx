@@ -79,24 +79,35 @@ export default function OnboardingDetail() {
       .join(' y ')
 
     const vars = {
-      razon_social: d.razon_social,
-      rut_sociedad: d.rut_sociedad,
-      nombre_rl: d.nombre_rl,
-      rut_rl: d.rut_rl,
+      razon_social: d.razon_social || '',
+      rut_sociedad: d.rut_sociedad || '',
+      nombre_rl: d.nombre_rl || '',
+      rut_rl: d.rut_rl || '',
       servicios,
     }
-    const fill = str => str.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '')
+
+    const fill = (str) => {
+      let result = str
+      for (const [key, value] of Object.entries(vars)) {
+        result = result.split(`{${key}}`).join(value)
+      }
+      return result
+    }
 
     let subject = `Solicitud Afiliación Transbank — ${d.razon_social}`
     let body = `<p>Estimado ejecutivo de Transbank,</p><p>Adjunto la documentación de afiliación para ${d.razon_social}.</p><p>Saludos,<br/>Equipo Apio</p>`
 
-    const { data: file } = await supabase.storage
-      .from('onboarding-docs')
-      .download('templates/email_transbank.json')
-    if (file) {
-      const json = JSON.parse(await file.text())
-      subject = fill(json.subject || subject)
-      body = fill(json.body || body)
+    try {
+      const { data: file, error } = await supabase.storage
+        .from('onboarding-docs')
+        .download('templates/email_transbank.json')
+      if (file && !error) {
+        const json = JSON.parse(await file.text())
+        if (json.subject) subject = fill(json.subject)
+        if (json.body) body = fill(json.body)
+      }
+    } catch (err) {
+      console.error('Error cargando plantilla email:', err)
     }
 
     return { subject, body }
