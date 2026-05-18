@@ -72,25 +72,34 @@ export default function OnboardingDetail() {
     setUploadingContract(false)
   }
 
-  const buildEmailDraft = (d) => {
+  const buildEmailDraft = async (d) => {
     const servicios = (d.medios_pago || [])
       .filter(m => m.includes('webpay'))
       .map(m => m === 'webpay_plus' ? 'Webpay Plus' : 'Webpay OneClick')
       .join(' y ')
-    return {
-      subject: `Solicitud Afiliación Transbank — ${d.razon_social}`,
-      body: `<p>Estimado ejecutivo de Transbank,</p>
-<p>Adjunto a este correo encontrará la documentación necesaria para procesar la solicitud de afiliación del siguiente cliente:</p>
-<ul>
-  <li><strong>Razón Social:</strong> ${d.razon_social}</li>
-  <li><strong>RUT:</strong> ${d.rut_sociedad}</li>
-  <li><strong>Representante Legal:</strong> ${d.nombre_rl}, RUT ${d.rut_rl}</li>
-  <li><strong>Servicios solicitados:</strong> ${servicios}</li>
-</ul>
-<p>En los adjuntos encontrará la escritura de la sociedad, cédula del representante legal, e-RUT y el o los contratos firmados.</p>
-<p>Quedo a disposición ante cualquier consulta.</p>
-<p>Saludos,<br/>Equipo Apio</p>`,
+
+    const vars = {
+      razon_social: d.razon_social,
+      rut_sociedad: d.rut_sociedad,
+      nombre_rl: d.nombre_rl,
+      rut_rl: d.rut_rl,
+      servicios,
     }
+    const fill = str => str.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '')
+
+    let subject = `Solicitud Afiliación Transbank — ${d.razon_social}`
+    let body = `<p>Estimado ejecutivo de Transbank,</p><p>Adjunto la documentación de afiliación para ${d.razon_social}.</p><p>Saludos,<br/>Equipo Apio</p>`
+
+    const { data: file } = await supabase.storage
+      .from('onboarding-docs')
+      .download('templates/email_transbank.json')
+    if (file) {
+      const json = JSON.parse(await file.text())
+      subject = fill(json.subject || subject)
+      body = fill(json.body || body)
+    }
+
+    return { subject, body }
   }
 
   const handleSendTransbank = async () => {
@@ -241,7 +250,7 @@ export default function OnboardingDetail() {
 
             {!emailDraft ? (
               <button
-                onClick={() => { setEmailDraft(buildEmailDraft(data)); setEmailTab('edit') }}
+                onClick={async () => { setEmailDraft(await buildEmailDraft(data)); setEmailTab('edit') }}
                 disabled={!data.contrato_transbank_firmado}
                 className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
               >
