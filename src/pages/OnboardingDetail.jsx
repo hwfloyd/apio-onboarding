@@ -215,6 +215,32 @@ export default function OnboardingDetail() {
           )}
         </div>
 
+        {/* Contratos generados */}
+        {(data.contrato_prestacion_path || data.excel_transbank_path || data.contrato_transbank_path) && (
+          <div className="bg-white rounded-2xl shadow-sm p-6">
+            <h2 className="text-base font-semibold text-gray-800 mb-4">Contratos Generados</h2>
+            <div className="space-y-2 text-sm">
+              {[
+                { path: data.contrato_prestacion_path, label: 'Contrato Prestación de Servicios' },
+                { path: data.contrato_transbank_path, label: 'Contrato Transbank' },
+                { path: data.excel_transbank_path, label: 'Formulario Afiliación Transbank (Excel)' },
+              ].map(({ path, label }) => path ? (
+                <div key={label} className="flex items-center gap-2">
+                  <span className="text-gray-600">{label}:</span>
+                  <a
+                    href={supabase.storage.from('onboarding-docs').getPublicUrl(path).data.publicUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    Descargar
+                  </a>
+                </div>
+              ) : null)}
+            </div>
+          </div>
+        )}
+
         {/* Documentos adjuntos */}
         <div className="bg-white rounded-2xl shadow-sm p-6">
           <h2 className="text-base font-semibold text-gray-800 mb-4">Documentos Adjuntos</h2>
