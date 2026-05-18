@@ -150,10 +150,10 @@ export const handler = async (event) => {
       if (tieneWebpayPlus) {
         await generateTransbankContract({
           ...baseVars,
-          nombre_producto: 'Webpay Plus',
-          codigo_mall: '52981028',
           marca_plus: 'X',
           marca_oneclick: '',
+          codigo_mall_plus: '52981028',
+          codigo_mall_oneclick: '',
           oneclick_max_transacciones: '',
           oneclick_monto_max: '',
           oneclick_monto_acumulado: '',
@@ -163,10 +163,10 @@ export const handler = async (event) => {
       if (tieneOneClick) {
         await generateTransbankContract({
           ...baseVars,
-          nombre_producto: 'Webpay OneClick',
-          codigo_mall: '42829258',
           marca_plus: '',
           marca_oneclick: 'X',
+          codigo_mall_plus: '',
+          codigo_mall_oneclick: '42829258',
           oneclick_max_transacciones: data.oneclick_max_transacciones || '',
           oneclick_monto_max: data.oneclick_monto_max || '',
           oneclick_monto_acumulado: data.oneclick_monto_acumulado || '',
