@@ -8,6 +8,7 @@ import { join } from 'path'
 const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY)
 
 export const handler = async (event) => {
+  try {
   const { id } = JSON.parse(event.body)
 
   const { data, error } = await supabase.from('onboardings').select('*').eq('id', id).single()
@@ -129,22 +130,19 @@ export const handler = async (event) => {
         fecha: fechaHoy,
       }
 
+      const templateBuffer = Buffer.from(await templateFile.arrayBuffer())
+
       const generateTransbankContract = async (vars, filename, updateKey) => {
-        try {
-          const buffer = Buffer.from(await templateFile.arrayBuffer())
-          const zip = new PizZip(buffer)
-          const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true })
-          doc.render(vars)
-          const out = doc.getZip().generate({ type: 'nodebuffer' })
-          const path = `${id}/contratos/${filename}`
-          await supabase.storage.from('onboarding-docs').upload(path, out, {
-            upsert: true,
-            contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          })
-          updates[updateKey] = path
-        } catch (err) {
-          console.error(`Error generando contrato ${filename}:`, err)
-        }
+        const zip = new PizZip(templateBuffer)
+        const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true })
+        doc.render(vars)
+        const out = doc.getZip().generate({ type: 'nodebuffer' })
+        const path = `${id}/contratos/${filename}`
+        await supabase.storage.from('onboarding-docs').upload(path, out, {
+          upsert: true,
+          contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        })
+        updates[updateKey] = path
       }
 
       if (tieneWebpayPlus) {
@@ -180,4 +178,8 @@ export const handler = async (event) => {
   }
 
   return { statusCode: 200, body: JSON.stringify(updates) }
+  } catch (err) {
+    console.error('generate-contracts error:', err)
+    return { statusCode: 500, body: JSON.stringify({ error: err.message }) }
+  }
 }

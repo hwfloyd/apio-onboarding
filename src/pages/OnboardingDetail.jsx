@@ -97,7 +97,8 @@ export default function OnboardingDetail() {
       setMsg('Contratos generados. Revisa los documentos generados abajo.')
       fetchOnboarding()
     } else {
-      setMsg('Error al generar contratos.')
+      const body = await res.json().catch(() => ({}))
+      setMsg(`Error al generar contratos: ${body.error || res.status}`)
     }
   }
 
