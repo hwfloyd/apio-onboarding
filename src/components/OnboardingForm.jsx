@@ -176,9 +176,11 @@ export default function OnboardingForm() {
       ])
 
       // 2. Guardar en base de datos
-      const { data: onboarding, error: dbError } = await supabase
+      const newId = crypto.randomUUID()
+      const { error: dbError } = await supabase
         .from('onboardings')
         .insert({
+          id: newId,
           razon_social: form.razon_social,
           nombre_fantasia: form.nombre_fantasia,
           rut_sociedad: form.rut_sociedad,
@@ -211,8 +213,6 @@ export default function OnboardingForm() {
           archivo_cedula_rl_cert: cedula_cert,
           estado: 'pendiente',
         })
-        .select()
-        .single()
 
       if (dbError) throw dbError
 
@@ -220,7 +220,7 @@ export default function OnboardingForm() {
       await fetch('/.netlify/functions/notify-onboarding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: onboarding.id }),
+        body: JSON.stringify({ id: newId }),
       })
 
       setSubmitted(true)
