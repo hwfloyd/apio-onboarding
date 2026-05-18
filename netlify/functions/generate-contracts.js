@@ -95,28 +95,76 @@ export const handler = async (event) => {
         fecha: new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' }),
       }
 
-      const excelBuffer = Buffer.from(await excelTemplate.arrayBuffer())
-      const workbook = new ExcelJS.Workbook()
-      await workbook.xlsx.load(excelBuffer)
+      const templateBuffer = Buffer.from(await excelTemplate.arrayBuffer())
 
-      workbook.eachSheet(sheet => {
-        sheet.eachRow(row => {
-          row.eachCell(cell => {
-            if (typeof cell.value === 'string') {
-              const replaced = cell.value.replace(/\{(\w+)\}/g, (_, key) => excelVars[key] ?? '')
-              if (replaced !== cell.value) cell.value = replaced
-            }
+      const fillExcel = async (vars, filename, updateKey) => {
+        const workbook = new ExcelJS.Workbook()
+        await workbook.xlsx.load(templateBuffer)
+        workbook.eachSheet(sheet => {
+          sheet.eachRow(row => {
+            row.eachCell(cell => {
+              if (typeof cell.value === 'string') {
+                const replaced = cell.value.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? '')
+                if (replaced !== cell.value) cell.value = replaced
+              }
+            })
           })
         })
-      })
+        const filledBuffer = await workbook.xlsx.writeBuffer()
+        const path = `${id}/contratos/${filename}`
+        await supabase.storage.from('onboarding-docs').upload(path, filledBuffer, {
+          upsert: true,
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        })
+        updates[updateKey] = path
+      }
 
-      const filledBuffer = await workbook.xlsx.writeBuffer()
-      const excelPath = `${id}/contratos/formulario_transbank.xlsx`
-      await supabase.storage.from('onboarding-docs').upload(excelPath, filledBuffer, {
-        upsert: true,
-        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      })
-      updates.excel_transbank_path = excelPath
+      const baseExcelVars = {
+        razon_social: data.razon_social || '',
+        nombre_fantasia: data.nombre_fantasia || data.razon_social || '',
+        rut_sociedad: data.rut_sociedad || '',
+        direccion: data.direccion || '',
+        oficina: data.oficina || '',
+        comuna: data.comuna || '',
+        region: data.region || '',
+        actividad_economica: data.actividad_economica || '',
+        nombre_rl: data.nombre_rl || '',
+        rut_rl: data.rut_rl || '',
+        telefono_rl: data.telefono_rl || '',
+        email_rl: data.email_rl || '',
+        banco: data.banco_label || '',
+        numero_cuenta: data.numero_cuenta || '',
+        rut_titular_cuenta: data.rut_titular_es_sociedad ? data.rut_sociedad : (data.rut_titular_cuenta || ''),
+        fecha: new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' }),
+      }
+
+      if (tieneWebpayPlus) {
+        await fillExcel({
+          ...baseExcelVars,
+          nombre_producto: 'Webpay Plus',
+          marca_plus: 'X',
+          marca_oneclick: '',
+          codigo_mall_plus: '52981028',
+          codigo_mall_oneclick: '',
+          oneclick_max_transacciones: '',
+          oneclick_monto_max: '',
+          oneclick_monto_acumulado: '',
+        }, 'formulario_transbank_plus.xlsx', 'excel_transbank_plus_path')
+      }
+
+      if (tieneOneClick) {
+        await fillExcel({
+          ...baseExcelVars,
+          nombre_producto: 'Webpay OneClick',
+          marca_plus: '',
+          marca_oneclick: 'X',
+          codigo_mall_plus: '',
+          codigo_mall_oneclick: '42829258',
+          oneclick_max_transacciones: data.oneclick_max_transacciones || '',
+          oneclick_monto_max: data.oneclick_monto_max || '',
+          oneclick_monto_acumulado: data.oneclick_monto_acumulado || '',
+        }, 'formulario_transbank_oneclick.xlsx', 'excel_transbank_oneclick_path')
+      }
     } catch (err) {
       console.error('Error generando Excel Transbank:', err)
     }

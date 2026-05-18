@@ -217,7 +217,7 @@ export default function OnboardingDetail() {
         </div>
 
         {/* Contratos generados */}
-        {(data.contrato_prestacion_path || data.excel_transbank_path || data.contrato_transbank_path) && (
+        {(data.contrato_prestacion_path || data.excel_transbank_plus_path || data.excel_transbank_oneclick_path || data.contrato_transbank_plus_path || data.contrato_transbank_oneclick_path) && (
           <div className="bg-white rounded-2xl shadow-sm p-6">
             <h2 className="text-base font-semibold text-gray-800 mb-4">Contratos Generados</h2>
             <div className="space-y-2 text-sm">
@@ -225,7 +225,8 @@ export default function OnboardingDetail() {
                 { path: data.contrato_prestacion_path, label: 'Contrato Prestación de Servicios' },
                 { path: data.contrato_transbank_plus_path, label: 'Contrato Transbank — Webpay Plus' },
                 { path: data.contrato_transbank_oneclick_path, label: 'Contrato Transbank — Webpay OneClick' },
-                { path: data.excel_transbank_path, label: 'Formulario Afiliación Transbank (Excel)' },
+                { path: data.excel_transbank_plus_path, label: 'Ficha Transbank — Webpay Plus' },
+                { path: data.excel_transbank_oneclick_path, label: 'Ficha Transbank — Webpay OneClick' },
               ].map(({ path, label }) => path ? (
                 <div key={label} className="flex items-center gap-2">
                   <span className="text-gray-600">{label}:</span>
