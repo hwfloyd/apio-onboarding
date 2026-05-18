@@ -26,18 +26,28 @@ function row(label, value) {
 }
 
 export const handler = async (event) => {
-  const { id } = JSON.parse(event.body)
+  const data = JSON.parse(event.body)
 
-  const { data, error } = await supabase.from('onboardings').select('*').eq('id', id).single()
-  if (error) return { statusCode: 500, body: 'Error fetching onboarding' }
+  // Insertar en Supabase usando service role key (bypasa RLS)
+  const { data: onboarding, error } = await supabase
+    .from('onboardings')
+    .insert({ ...data, estado: 'pendiente' })
+    .select('id, created_at')
+    .single()
 
+  if (error) {
+    console.error('DB insert error:', error)
+    return { statusCode: 500, body: JSON.stringify({ error: error.message }) }
+  }
+
+  const id = onboarding.id
   const productos = (data.productos || []).map(p => PRODUCTO_LABELS[p] || p).join(', ')
   const medios = (data.medios_pago || []).map(m => MEDIO_LABELS[m] || m).join(', ')
 
   const html = `
     <div style="font-family:system-ui,sans-serif;max-width:700px;margin:0 auto">
       <h2 style="color:#1e3a5f">Nuevo Onboarding — ${data.razon_social}</h2>
-      <p style="color:#6b7280">Recibido el ${new Date(data.created_at).toLocaleString('es-CL')}</p>
+      <p style="color:#6b7280">Recibido el ${new Date(onboarding.created_at).toLocaleString('es-CL')}</p>
 
       <h3 style="color:#374151;margin-top:24px">Datos de la Sociedad</h3>
       <table style="border-collapse:collapse;width:100%">

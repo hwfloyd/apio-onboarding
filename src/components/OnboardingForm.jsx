@@ -175,12 +175,11 @@ export default function OnboardingForm() {
         uploadFile(form.archivo_cedula_rl_cert, `${folder}/cedula_rl_certificado`),
       ])
 
-      // 2. Guardar en base de datos
-      const newId = crypto.randomUUID()
-      const { error: dbError } = await supabase
-        .from('onboardings')
-        .insert({
-          id: newId,
+      // 2. Guardar en DB y enviar notificación vía función serverless
+      const res = await fetch('/.netlify/functions/notify-onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           razon_social: form.razon_social,
           nombre_fantasia: form.nombre_fantasia,
           rut_sociedad: form.rut_sociedad,
@@ -211,17 +210,9 @@ export default function OnboardingForm() {
           archivo_cedula_rl: cedula_rl,
           archivo_erut: erut,
           archivo_cedula_rl_cert: cedula_cert,
-          estado: 'pendiente',
-        })
-
-      if (dbError) throw dbError
-
-      // 3. Disparar función de notificación por correo
-      await fetch('/.netlify/functions/notify-onboarding', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: newId }),
+        }),
       })
+      if (!res.ok) throw new Error('Error al guardar el formulario')
 
       setSubmitted(true)
     } catch (err) {
