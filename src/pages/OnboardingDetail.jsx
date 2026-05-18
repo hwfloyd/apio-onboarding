@@ -51,8 +51,8 @@ export default function OnboardingDetail() {
   }
 
   const getFileUrl = async (path) => {
-    const { data } = supabase.storage.from('onboarding-docs').getPublicUrl(path)
-    return data.publicUrl
+    const { data } = await supabase.storage.from('onboarding-docs').createSignedUrl(path, 60)
+    return data?.signedUrl
   }
 
   const handleContractUpload = async (e, tipo) => {
@@ -227,14 +227,12 @@ export default function OnboardingDetail() {
               ].map(({ path, label }) => path ? (
                 <div key={label} className="flex items-center gap-2">
                   <span className="text-gray-600">{label}:</span>
-                  <a
-                    href={supabase.storage.from('onboarding-docs').getPublicUrl(path).data.publicUrl}
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    onClick={async () => { const url = await getFileUrl(path); if (url) window.open(url, '_blank') }}
                     className="text-blue-600 hover:underline"
                   >
                     Descargar
-                  </a>
+                  </button>
                 </div>
               ) : null)}
             </div>
@@ -253,14 +251,12 @@ export default function OnboardingDetail() {
             ].map(({ path, label }) => path ? (
               <div key={label} className="flex items-center gap-2">
                 <span className="text-gray-600">{label}:</span>
-                <a
-                  href={supabase.storage.from('onboarding-docs').getPublicUrl(path).data.publicUrl}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  onClick={async () => { const url = await getFileUrl(path); if (url) window.open(url, '_blank') }}
                   className="text-blue-600 hover:underline"
                 >
                   Ver documento
-                </a>
+                </button>
               </div>
             ) : null)}
           </div>
