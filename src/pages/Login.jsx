@@ -11,6 +11,12 @@ export default function Login() {
     e.preventDefault()
     setLoading(true)
     setError(null)
+    const allowedEmail = import.meta.env.VITE_ADMIN_EMAIL
+    if (allowedEmail && email.toLowerCase() !== allowedEmail.toLowerCase()) {
+      setError('Este correo no tiene acceso al backoffice.')
+      setLoading(false)
+      return
+    }
     const redirectTo = `${window.location.origin}/admin`
     const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } })
     if (error) {
