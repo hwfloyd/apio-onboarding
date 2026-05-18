@@ -134,6 +134,7 @@ export const handler = async (event) => {
         email_rl: data.email_rl || '',
         banco: data.banco_label || '',
         numero_cuenta: data.numero_cuenta || '',
+        rut_titular_cuenta: data.rut_titular_es_sociedad ? data.rut_sociedad : (data.rut_titular_cuenta || ''),
         fecha: fechaHoy,
       }
 
