@@ -121,12 +121,17 @@ export const handler = async (event) => {
     if (templateFile) {
       const fechaHoy = new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })
       const baseVars = {
-        razon_social: data.razon_social,
-        rut_sociedad: data.rut_sociedad,
-        nombre_rl: data.nombre_rl,
-        rut_rl: data.rut_rl,
-        direccion: data.direccion,
-        comuna: data.comuna,
+        razon_social: data.razon_social || '',
+        nombre_fantasia: data.nombre_fantasia || data.razon_social || '',
+        rut_sociedad: data.rut_sociedad || '',
+        direccion: data.direccion || '',
+        oficina: data.oficina || '',
+        comuna: data.comuna || '',
+        region: data.region || '',
+        nombre_rl: data.nombre_rl || '',
+        rut_rl: data.rut_rl || '',
+        telefono_rl: data.telefono_rl || '',
+        email_rl: data.email_rl || '',
         banco: data.banco_label || '',
         numero_cuenta: data.numero_cuenta || '',
         fecha: fechaHoy,
@@ -150,6 +155,7 @@ export const handler = async (event) => {
       if (tieneWebpayPlus) {
         await generateTransbankContract({
           ...baseVars,
+          nombre_producto: 'Webpay Plus',
           marca_plus: 'X',
           marca_oneclick: '',
           codigo_mall_plus: '52981028',
@@ -163,6 +169,7 @@ export const handler = async (event) => {
       if (tieneOneClick) {
         await generateTransbankContract({
           ...baseVars,
+          nombre_producto: 'Webpay OneClick',
           marca_plus: '',
           marca_oneclick: 'X',
           codigo_mall_plus: '',
